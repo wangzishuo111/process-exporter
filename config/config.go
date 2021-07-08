@@ -6,7 +6,9 @@ import (
 	"io/ioutil"
 	"log"
 	"path/filepath"
+	//"reflect"
 	"regexp"
+
 	"strings"
 	"text/template"
 	"time"
@@ -42,6 +44,11 @@ type (
 		captures map[string]string
 	}
 
+	discmdlineMatcher struct {
+		disregexes  []*regexp.Regexp
+		discaptures map[string]string
+	}
+
 	andMatcher []Matcher
 
 	templateNamer struct {
@@ -66,7 +73,10 @@ type (
 
 func (c *cmdlineMatcher) String() string {
 	return fmt.Sprintf("cmdlines: %+v", c.regexes)
+}
 
+func (d *discmdlineMatcher) String() string {
+	return fmt.Sprintf("discmdlines: %+v", d.disregexes)
 }
 
 func (e *exeMatcher) String() string {
@@ -104,20 +114,33 @@ func (m *matchNamer) MatchAndName(nacl common.ProcAttributes) (bool, string) {
 	}
 
 	matches := make(map[string]string)
+	dismatches := make(map[string]string)
+	//log.Printf("wzs log ---------m.andMatcher is %T", m.andMatcher)
+	//log.Printf("wzs log ---------m.andMatcher is %+v", m.andMatcher)
 	for _, m := range m.andMatcher {
 		if mc, ok := m.(*cmdlineMatcher); ok {
+			// 这块看着mc好像都是cmdline的 内容，没看到ssh
+			//log.Printf("wzs log -----------mc mc mc mc is %+v", mc)
+			//这里 mc.captures是匹配到的命令，只打出了ssh和上面匹配相关的，也就是captures是有问题的
 			for k, v := range mc.captures {
 				matches[k] = v
 			}
 		}
 	}
+	for _, m := range m.andMatcher {
+		if mc, ok := m.(*discmdlineMatcher); ok {
+			for k, v := range mc.discaptures {
+				dismatches[k] = v
+			}
+		}
+	}
+
 
 	exebase, exefull := nacl.Name, nacl.Name
 	if len(nacl.Cmdline) > 0 {
 		exefull = nacl.Cmdline[0]
 		exebase = filepath.Base(exefull)
 	}
-
 	var buf bytes.Buffer
 	m.template.Execute(&buf, &templateParams{
 		Comm:      nacl.Name,
@@ -153,12 +176,23 @@ func (m *exeMatcher) Match(nacl common.ProcAttributes) bool {
 }
 
 func (m *cmdlineMatcher) Match(nacl common.ProcAttributes) bool {
+	//log.Printf("wzs log ssssssssssssssssssssssssssssss %v", m.regexes)
+	//这里读的 正则表达式都对，没有读 ssh那个,包括下面循环里的regex也是争取的
 	for _, regex := range m.regexes {
 		captures := regex.FindStringSubmatch(strings.Join(nacl.Cmdline, " "))
+		//这里过滤出来的 captures 也都正常，是全过滤出来的
 		if m.captures == nil {
 			return false
 		}
 		subexpNames := regex.SubexpNames()
+		//log.Printf("wzs log sssssssssssssssssssssssssssssssssssssssssssssssssssssssss %v", subexpNames)
+		//log.Printf("wzs log sssssssssssssssssssssssssssssssssssssssssssssssssssssssss %v", captures)
+		////会打印  [ app]
+		////       [/apps/feishu feishu]
+		//log.Printf("wzs log -------------")
+
+		//截止到目前，还是很正常
+
 		if len(subexpNames) != len(captures) {
 			return false
 		}
@@ -166,20 +200,60 @@ func (m *cmdlineMatcher) Match(nacl common.ProcAttributes) bool {
 		for i, name := range subexpNames {
 			m.captures[name] = captures[i]
 		}
+		//log.Printf("wzs log wwwwwwww %v",m.captures)
+		//这里打印看着还是正常的，下面循环完也是正常的。
+	}
+	return true
+}
+
+func (m *discmdlineMatcher) Match(nacl common.ProcAttributes) bool {
+	for _, regex := range m.disregexes {
+		discaptures := regex.FindStringSubmatch(strings.Join(nacl.Cmdline, " "))
+		if m.discaptures == nil {
+			return true
+		}
+		subexpNames := regex.SubexpNames()
+		log.Printf("wzs log subexpNames len is %v val is %v",len(subexpNames), subexpNames)
+		log.Printf("wzs log discaptures len is %v val is %v", len(discaptures), discaptures)
+
+		//if len(subexpNames) != len(discaptures) {
+		//	log.Printf("wzs log ----------- discmdlines true")
+		//	return true
+		//} else {
+		//	log.Printf("wzs log ----------- discmdlines false")
+		//	return false
+		//}
+		if len(subexpNames) == len(discaptures) {
+			return false
+		}
+		//for i, name := range subexpNames {
+		//	m.discaptures[name] = discaptures[i]
+		//}
 	}
 	return true
 }
 
 func (m andMatcher) Match(nacl common.ProcAttributes) bool {
+	var myflag bool = true
+	log.Printf("wzs log cmd is  %+v", nacl.Cmdline)
 	for _, matcher := range m {
-		if !matcher.Match(nacl) {
-			return false
-		}
+		myflag = myflag && matcher.Match(nacl)
+		log.Printf("wzs log matcher %v", matcher)
+		log.Printf("myflag is %v", myflag)
+		//if !matcher.Match(nacl) {
+		//	return false
+		//}
 	}
+	if !myflag {
+		log.Printf("i return le false")
+		return false
+	}
+	log.Printf("i return le true")
 	return true
 }
 
 // ReadRecipesFile opens the named file and extracts recipes from it.
+
 func ReadFile(cfgpath string, debug bool) (*Config, error) {
 	content, err := ioutil.ReadFile(cfgpath)
 	if err != nil {
@@ -204,6 +278,7 @@ func GetConfig(content string, debug bool) (*Config, error) {
 		return nil, fmt.Errorf("error parsing YAML config: no top-level 'process_names' key")
 	}
 	procnames, ok := yamlProcnames.([]interface{})
+	//procnames中包含： map[cmdline:[.+] dismatch:[ssh] name:full-{{.ExeFull}}]
 	if !ok {
 		return nil, fmt.Errorf("error parsing YAML config: 'process_names' is not a list")
 	}
@@ -227,6 +302,7 @@ func getMatchNamer(yamlmn interface{}) (common.MatchNamer, error) {
 	}
 
 	var smap = make(map[string][]string)
+	var dismap = make(map[string][]string)
 	var nametmpl string
 	for k, v := range nm {
 		key, ok := k.(string)
@@ -240,7 +316,7 @@ func getMatchNamer(yamlmn interface{}) (common.MatchNamer, error) {
 				return nil, fmt.Errorf("non-string value %v for key %q", v, key)
 			}
 			nametmpl = value
-		} else {
+		} else if key == "cmdline" {
 			vals, ok := v.([]interface{})
 			if !ok {
 				return nil, fmt.Errorf("non-string array value %v for key %q", v, key)
@@ -254,9 +330,23 @@ func getMatchNamer(yamlmn interface{}) (common.MatchNamer, error) {
 				strs = append(strs, s)
 			}
 			smap[key] = strs
+		} else if key == "dismatch" {
+			vals, ok := v.([]interface{})
+			if !ok {
+				return nil, fmt.Errorf("non-string array value %v for key %q", v, key)
+			}
+			var strs []string
+			for i, si := range vals {
+				s, ok := si.(string)
+				if !ok {
+					return nil, fmt.Errorf("non-string value %v in list[%d] for key %q", v, i, key)
+				}
+				strs = append(strs, s)
+			}
+			dismap[key] = strs
+			log.Printf("wzs log dismap sis %v", dismap)
 		}
 	}
-
 	var matchers andMatcher
 	if comm, ok := smap["comm"]; ok {
 		comms := make(map[string]struct{})
@@ -288,6 +378,20 @@ func getMatchNamer(yamlmn interface{}) (common.MatchNamer, error) {
 		matchers = append(matchers, &cmdlineMatcher{
 			regexes:  rs,
 			captures: make(map[string]string),
+		})
+	}
+	if dismatch, ok := dismap["dismatch"]; ok {
+		var disrs []*regexp.Regexp
+		for _, c := range dismatch {
+			r, err := regexp.Compile(c)
+			if err != nil {
+				return nil, fmt.Errorf("bad dismatch regex %q: %v", c, err)
+			}
+			disrs = append(disrs, r)
+		}
+		matchers = append(matchers, &discmdlineMatcher{
+			disregexes: disrs,
+			discaptures: make(map[string]string),
 		})
 	}
 	if len(matchers) == 0 {

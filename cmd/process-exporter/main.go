@@ -326,6 +326,7 @@ func main() {
 	}
 
 	var matchnamer common.MatchNamer
+	//var dismatchnamer common.DisMatchNamer
 
 	if *configPath != "" {
 		if *nameMapping != "" || *procNames != "" {
@@ -520,6 +521,8 @@ func (p *NamedProcessCollector) scrape(ch chan<- prometheus.Metric) {
 		for gname, gcounts := range groups {
 			ch <- prometheus.MustNewConstMetric(numprocsDesc,
 				prometheus.GaugeValue, float64(gcounts.Procs), gname)
+			ch <- prometheus.MustNewConstMetric(membytesDesc,
+				prometheus.GaugeValue, float64(gcounts.Memory.CgroupMemLimit), gname, "cgroupmemlimit")
 			ch <- prometheus.MustNewConstMetric(membytesDesc,
 				prometheus.GaugeValue, float64(gcounts.Memory.ResidentBytes), gname, "resident")
 			ch <- prometheus.MustNewConstMetric(membytesDesc,

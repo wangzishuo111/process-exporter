@@ -63,6 +63,10 @@ func groupadd(grp Group, ts Update) Group {
 	var zeroTime time.Time
 
 	grp.Procs++
+	grp.Memory.CgroupPath += ts.Memory.CgroupPath
+	grp.Memory.CgroupMemLimit += ts.Memory.CgroupMemLimit
+	grp.Memory.MemLimitBytes += ts.Memory.MemLimitBytes
+	grp.Memory.RSSLimitBytes += ts.Memory.RSSLimitBytes
 	grp.Memory.ResidentBytes += ts.Memory.ResidentBytes
 	grp.Memory.VirtualBytes += ts.Memory.VirtualBytes
 	grp.Memory.VmSwapBytes += ts.Memory.VmSwapBytes
@@ -105,6 +109,8 @@ func (g *Grouper) Update(iter Iter) (CollectErrors, GroupByName, error) {
 	if err != nil {
 		return cerrs, nil, err
 	}
+	//log.Printf("g.groups is %v", g.groups(tracked))
+	//log.Printf(" in group update")
 	return cerrs, g.groups(tracked), nil
 }
 

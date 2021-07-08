@@ -426,6 +426,7 @@ func (t *Tracker) Update(iter Iter) (CollectErrors, []Update, error) {
 			PID:       idinfo.Pid,
 			StartTime: idinfo.StartTime,
 		}
+		//log.Printf("wzs log ncal.Cmdline and ncal.Discmdline is %v", nacl.Cmdline)
 		wanted, gname := t.namer.MatchAndName(nacl)
 		if wanted {
 			if t.debug {

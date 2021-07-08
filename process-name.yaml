@@ -1,0 +1,24 @@
+process_names:
+- name: "{{.Comm}}:{{.Matches.app}}"
+  cmdline:
+  - -Dgrowingio.infra.service=(?P<app>[\w\d_-]*)
+- name: "{{.Comm}}:{{.Matches.app}}"
+  cmdline:
+  - -Djobname=(?P<app>[\w\d_-]*)
+- name: "{{.Comm}}:{{.Matches.app}}"
+  cmdline:
+  - -Dproc_(?P<app>[\w\d_-]*)
+- name: "{{.Comm}}:{{.Matches.app}}"
+  cmdline:
+  - /apps/flow/(?P<app>[\w\d_-]*)
+- name: "app-{{.Comm}}:{{.Matches.app}}"
+  cmdline:
+  - /apps/(?P<app>[\w\d_-]*)
+- name: "full-{{.ExeFull}}"
+  cmdline:
+  - '.+'
+  dismatch:
+  - ssh.*
+  - abr.*
+  - systemd.*
+  - rsyslo.*

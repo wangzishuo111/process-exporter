@@ -50,8 +50,12 @@ type (
 	// Memory describes a proc's memory usage.
 	Memory struct {
 		ResidentBytes         uint64
+		CgroupPath	    string
+		CgroupMemLimit		int64
 		VirtualBytes          uint64
 		VmSwapBytes           uint64
+		MemLimitBytes         int
+		RSSLimitBytes	uint64
 		ProportionalBytes     uint64
 		ProportionalSwapBytes uint64
 	}
@@ -134,6 +138,7 @@ type (
 		procid  *ID
 		stat    *procfs.ProcStat
 		status  *procfs.ProcStatus
+		cgroup	*procfs.Cgroup
 		cmdline []string
 		io      *procfs.ProcIO
 		fs      *FS
@@ -299,6 +304,20 @@ func (p *proccache) getStatus() (procfs.ProcStatus, error) {
 	return *p.status, nil
 }
 
+func (p *proccache) getCgroup() (procfs.Cgroup, error) {
+   if p.cgroup == nil {
+      cgroup, err := p.Proc.NewCgroup()
+      if err != nil {
+         return procfs.Cgroup{}, err
+      }
+      p.cgroup = &cgroup[len(cgroup)-1]
+      //p.cgroup = &cgroup[-1]
+      //p.cgroup = &cgroup
+   }
+
+   return *p.cgroup, nil
+}
+
 // GetProcID implements Proc.
 func (p *proccache) GetProcID() (ID, error) {
 	if p.procid == nil {
@@ -454,6 +473,7 @@ func (p proc) GetMetrics() (Metrics, int, error) {
 	// Since GetMetrics isn't a pointer receiver method, our callers
 	// won't see the effect of the caching between calls.
 	stat, _ := p.getStat()
+	cgroup, _:= p.getCgroup()
 
 	// Ditto for states
 	states, _ := p.GetStates()
@@ -481,6 +501,10 @@ func (p proc) GetMetrics() (Metrics, int, error) {
 		ResidentBytes: uint64(stat.ResidentMemory()),
 		VirtualBytes:  uint64(stat.VirtualMemory()),
 		VmSwapBytes:   uint64(status.VmSwap),
+		MemLimitBytes:   stat.MemLimit,
+		RSSLimitBytes:   stat.RSSLimit,
+		CgroupPath:	cgroup.Path,
+		CgroupMemLimit:  cgroup.CgroupMemMax,
 	}
 
 	if p.proccache.fs.GatherSMaps {
