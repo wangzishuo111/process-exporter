@@ -9,7 +9,6 @@ type (
 	ProcAttributes struct {
 		Name      string
 		Cmdline   []string
-		//Discmdline	[]string
 		Username  string
 		PID       int
 		StartTime time.Time
