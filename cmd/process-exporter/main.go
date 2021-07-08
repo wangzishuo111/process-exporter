@@ -326,6 +326,7 @@ func main() {
 	}
 
 	var matchnamer common.MatchNamer
+	//var dismatchnamer common.DisMatchNamer
 
 	if *configPath != "" {
 		if *nameMapping != "" || *procNames != "" {
