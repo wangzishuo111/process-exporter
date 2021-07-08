@@ -10,8 +10,6 @@ require (
 	github.com/prometheus/client_golang v1.8.0
 	github.com/prometheus/common v0.14.0
 	github.com/prometheus/procfs v0.2.0
-	//github.com/wangzishuo111/procfs v0.0.1
-	//github.com/prometheus/procfs v0.2.0
 	gopkg.in/check.v1 v1.0.0-20200902074654-038fdea0a05b
 	gopkg.in/yaml.v2 v2.3.0
 )

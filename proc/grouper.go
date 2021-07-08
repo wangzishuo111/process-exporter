@@ -109,8 +109,6 @@ func (g *Grouper) Update(iter Iter) (CollectErrors, GroupByName, error) {
 	if err != nil {
 		return cerrs, nil, err
 	}
-	//log.Printf("g.groups is %v", g.groups(tracked))
-	//log.Printf(" in group update")
 	return cerrs, g.groups(tracked), nil
 }
 
